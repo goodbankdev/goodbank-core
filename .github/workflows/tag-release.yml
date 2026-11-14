@@ -1,0 +1,58 @@
+# .github/workflows/tag-release.yml
+name: Tag Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  tag-release:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'pre-release/')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Extract and validate version
+        run: |
+          VERSION="${{ github.event.pull_request.head.ref }}"
+          VERSION="${VERSION#pre-release/}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Versão '$VERSION' fora do padrão x.x.x" >&2
+            exit 1
+          fi
+          echo "Versão extraída: $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Check version is greater than last tag
+        run: |
+          LAST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)
+          LAST_VERSION="${LAST_TAG#v}"
+
+          if [[ -n "$LAST_VERSION" ]]; then
+            if [[ "$VERSION" == "$LAST_VERSION" ]]; then
+              echo "Versão $VERSION já existe como tag (${LAST_TAG})" >&2
+              exit 1
+            fi
+            HIGHEST=$(printf '%s\n%s\n' "$LAST_VERSION" "$VERSION" | sort -V | tail -n 1)
+            if [[ "$HIGHEST" != "$VERSION" ]]; then
+              echo "Versão $VERSION não é maior que a última tag ${LAST_TAG}" >&2
+              exit 1
+            fi
+          fi
+
+          echo "Última tag: ${LAST_TAG:-nenhuma}. Nova versão: $VERSION"
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"

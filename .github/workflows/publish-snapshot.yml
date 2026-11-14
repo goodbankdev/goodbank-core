@@ -1,39 +1,46 @@
+# .github/workflows/publish-snapshot.yml
 name: Publish Snapshot
 
 on:
   push:
     branches:
-      - 'snapshot/**'
+      - "snapshot/**"
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  publish:
+  publish-snapshot:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: "25"
 
-      - name: Extract version from branch name
-        id: version
-        run: |
-          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-          VERSION="${BRANCH_NAME#snapshot/}"
-          echo "version=${VERSION}-SNAPSHOT" >> "$GITHUB_OUTPUT"
-
-      - name: Grant execute permission for gradlew
+      - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Publish to GitHub Packages
+      - name: Extract version from branch name
+        run: |
+          VERSION="${GITHUB_REF_NAME#snapshot/}"
+          if [[ "$VERSION" != *-SNAPSHOT ]]; then
+            VERSION="$VERSION-SNAPSHOT"
+          fi
+          echo "Versão resolvida: $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        run: ./gradlew test -Pversion="${{ env.VERSION }}"
+
+      - name: Compile and build
+        run: ./gradlew build -x test -Pversion="${{ env.VERSION }}"
+
+      - name: Publish snapshot
+        run: ./gradlew publish -Pversion="${{ env.VERSION }}"
         env:
-          GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew publish -Pversion=${{ steps.version.outputs.version }}
