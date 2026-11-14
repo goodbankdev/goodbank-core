@@ -1,0 +1,38 @@
+# .github/workflows/pr-main.yml
+name: PR to Main
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate source branch
+        run: |
+          if [[ "${{ github.head_ref }}" != pre-release/* ]]; then
+            echo "Apenas branches pre-release/* podem abrir PR para main (branch atual: ${{ github.head_ref }})" >&2
+            exit 1
+          fi
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Run tests
+        run: ./gradlew test
+
+      - name: Build
+        run: ./gradlew build -x test
