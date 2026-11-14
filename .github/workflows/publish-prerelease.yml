@@ -1,0 +1,46 @@
+# .github/workflows/publish-prerelease.yml
+name: Publish Pre-release
+
+on:
+  push:
+    branches:
+      - "pre-release/**"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish-prerelease:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Extract version from branch name
+        run: |
+          VERSION="${GITHUB_REF_NAME#pre-release/}"
+          if [[ "$VERSION" != *-rc* ]]; then
+            VERSION="$VERSION-rc"
+          fi
+          echo "Versão resolvida: $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        run: ./gradlew test -Pversion="${{ env.VERSION }}"
+
+      - name: Compile and build
+        run: ./gradlew build -x test -Pversion="${{ env.VERSION }}"
+
+      - name: Publish pre-release
+        run: ./gradlew publish -Pversion="${{ env.VERSION }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
