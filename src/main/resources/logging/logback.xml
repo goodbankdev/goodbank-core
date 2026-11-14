@@ -1,0 +1,15 @@
+<configuration>
+
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder">
+            <format>logstash</format>
+        </encoder>
+    </appender>
+
+    <logger name="br.com.goodbank" level="INFO"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE_JSON"/>
+    </root>
+
+</configuration>
